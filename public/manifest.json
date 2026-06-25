@@ -1,0 +1,9 @@
+{
+  "name": "Sistem Informasi Penjadwalan dan Administrasi Kurikulum",
+  "short_name": "SIPAK",
+  "description": "Aplikasi cerdas guru kurikulum untuk penjadwalan dan manajemen sekolah.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#12141c",
+  "theme_color": "#12141c"
+}
