@@ -181,16 +181,52 @@ h3 { font-size: 1.25rem; }
 .agenda-date .month { font-size: 0.75rem; text-transform: uppercase; font-weight: 600; color: var(--text-muted); }
 .agenda-details { flex: 1; }
 
+/* Mobile Navigation Button & Overlay */
+.mobile-menu-btn {
+  display: none; position: fixed; top: 1rem; left: 1rem; z-index: 1001;
+  background: rgba(15, 23, 42, 0.85); color: white; border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md); width: 44px; height: 44px; font-size: 1.5rem;
+  align-items: center; justify-content: center; backdrop-filter: blur(8px);
+  cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.sidebar-overlay {
+  display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(2px); z-index: 999;
+}
+
 @media (min-width: 1025px) { .app-content-wrapper { margin-left: 280px; width: calc(100% - 280px); } }
 @media (max-width: 1024px) {
+  .mobile-menu-btn { display: inline-flex; }
+  .sidebar-overlay { display: block; }
   .grid-cols-3 { grid-template-columns: repeat(2, 1fr); }
-  .sidebar { transform: translateX(-100%); transition: transform var(--transition-normal); }
+  .sidebar { transform: translateX(-100%); transition: transform var(--transition-normal); z-index: 1000; box-shadow: 20px 0 25px -5px rgba(0, 0, 0, 0.5); }
   .sidebar.open { transform: translateX(0); }
-  .app-content-wrapper { width: 100%; padding-top: 4rem; }
+  .app-content-wrapper { width: 100%; padding-top: 4.5rem; }
+  
+  /* Timetabler Matrix Stacking */
+  .print-matrix-wrapper {
+    flex-direction: column !important; gap: 2rem !important;
+  }
+  .print-matrix-wrapper > div {
+    width: 100% !important; min-width: 100% !important;
+  }
 }
+
 @media (max-width: 768px) {
   .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr; }
-  .main-content { padding: var(--spacing-md); }
+  .main-content { padding: 1rem; }
+  
+  .page-header h1 { font-size: 1.5rem; }
+  .page-header p { font-size: 0.9rem; }
+  .page-header div { flex-direction: column; width: 100%; }
+  .page-header .btn { width: 100%; justify-content: center; }
+
+  /* Ensure tables scroll horizontally on phone */
+  .data-table, .matrix-table, .legend-table {
+    display: block; width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+
+  .glass-panel { padding: 1.25rem; }
 }
 /* Matrix Timetable UI */
 .matrix-table {
