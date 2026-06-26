@@ -71,6 +71,7 @@ export async function POST() {
       id_mapel: string;
       id_kelas: string;
       length: number;
+      baseSlack: number; // Tambahkan properti ini
       isFallback?: boolean;
     }
     let tasks: ScheduleTask[] = [];
