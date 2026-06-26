@@ -124,7 +124,7 @@ export default function Timetabler() {
     .map((leg: any) => ({
       ...leg,
       no: leg.kode, // No dan Kode sama persis karena berurutan 1..n
-      kelasStr: Array.from(leg.kelas).sort(sortClasses).join(', ')
+      kelasStr: Array.from(leg.kelas as Set<string>).sort(sortClasses).join(', ')
     }));
 
   // Group classes by tingkat
