@@ -12,7 +12,7 @@ function shuffleArray<T>(array: T[]): T[] {
 
 function chunkBeban(beban: number): number[] {
   // Minimal 2 jam berturut-turut, maksimal 3 jam berturut-turut
-  if (beban >= 6) return [3, 3];
+  if (beban === 6) return [3, 3]; // Perbaikan: hanya jika beban tepat 6
   if (beban === 5) return [3, 2];
   if (beban === 4) return [2, 2];
   if (beban === 3) return [3];
@@ -84,7 +84,8 @@ export async function POST() {
           id_guru: b.id_guru,
           id_mapel: b.id_mapel,
           id_kelas: b.id_kelas,
-          length: len
+          length: len,
+          baseSlack: 0 // Inisialisasi baseSlack
         });
       });
     });
@@ -269,13 +270,13 @@ export async function POST() {
 
         if (N > 1 && !isPjok) {
           // Fallback: pecah menjadi N-1 dan 1
-          iterationTasks.splice(i + 1, 0, 
-            { id_guru, id_mapel, id_kelas, length: N - 1, isFallback: true },
-            { id_guru, id_mapel, id_kelas, length: 1, isFallback: true }
+          iterationTasks.splice(i + 1, 0,
+            { id_guru, id_mapel, id_kelas, length: N - 1, isFallback: true, baseSlack: 0 }, // Tambahkan baseSlack
+            { id_guru, id_mapel, id_kelas, length: 1, isFallback: true, baseSlack: 0 }    // Tambahkan baseSlack
           );
         } else if (!isFallback) {
           // Retry N but with fallback flag to relax constraints
-          iterationTasks.splice(i + 1, 0, { id_guru, id_mapel, id_kelas, length: N, isFallback: true });
+          iterationTasks.splice(i + 1, 0, { id_guru, id_mapel, id_kelas, length: N, isFallback: true, baseSlack: 0 }); // Tambahkan baseSlack
         } else {
           unassignedCount += N; // count as N hours failing
           unassignedTasksList.push(task);
