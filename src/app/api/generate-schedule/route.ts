@@ -298,6 +298,148 @@ export async function POST() {
       if (bestUnassignedCount === 0) break; // Perfect schedule found
     }
 
+    // POST-PROCESSING REPAIR HEURISTIC (Slot-Swapping with strict constraint checks)
+    if (bestUnassignedCount > 0) {
+      let resolvedCount = 0;
+      
+      for (let fIdx = bestUnassignedTasks.length - 1; fIdx >= 0; fIdx--) {
+        const task = bestUnassignedTasks[fIdx];
+        if (task.length !== 1) continue;
+
+        const { id_guru, id_mapel, id_kelas } = task;
+
+        // Find empty slots for this class
+        const emptySlots: { day: number; period: number }[] = [];
+        for (const dStr in validPeriodsMap) {
+          const d = parseInt(dStr);
+          for (const p of validPeriodsMap[d]) {
+            let classHasLesson = false;
+            for (const item of bestFinalSchedules) {
+              if (item.id_kelas === id_kelas && item.hari === d && item.jam_ke === p) {
+                classHasLesson = true;
+                break;
+              }
+            }
+            if (!classHasLesson) {
+              emptySlots.push({ day: d, period: p });
+            }
+          }
+        }
+
+        if (emptySlots.length === 0) continue;
+
+        let swapSuccess = false;
+
+        // Try to swap with scheduled lessons in this class
+        for (const dStr in validPeriodsMap) {
+          const d_swap = parseInt(dStr);
+          for (const p_swap of validPeriodsMap[d_swap]) {
+            let currentLessonIdx = -1;
+            for (let idx = 0; idx < bestFinalSchedules.length; idx++) {
+              const item = bestFinalSchedules[idx];
+              if (item.id_kelas === id_kelas && item.hari === d_swap && item.jam_ke === p_swap) {
+                currentLessonIdx = idx;
+                break;
+              }
+            }
+
+            if (currentLessonIdx === -1) continue;
+
+            const t2_lesson = bestFinalSchedules[currentLessonIdx];
+            const t2_guru = t2_lesson.id_guru;
+            const t2_mapel = t2_lesson.id_mapel;
+
+            if (t2_guru === id_guru || t2_mapel === id_mapel) continue;
+
+            for (const emptySlot of emptySlots) {
+              const d_empty = emptySlot.day;
+              const p_empty = emptySlot.period;
+
+              // Check if T is free at (d_swap, p_swap)
+              let isTFreeAtSwap = !guruUnavailableMap[id_guru]?.[d_swap]?.[p_swap];
+              if (isTFreeAtSwap) {
+                for (const item of bestFinalSchedules) {
+                  if (item.id_guru === id_guru && item.hari === d_swap && item.jam_ke === p_swap) {
+                    isTFreeAtSwap = false;
+                    break;
+                  }
+                }
+              }
+
+              // Check if T2 is free at (d_empty, p_empty)
+              let isT2FreeAtEmpty = !guruUnavailableMap[t2_guru]?.[d_empty]?.[p_empty];
+              if (isT2FreeAtEmpty) {
+                for (const item of bestFinalSchedules) {
+                  if (item.id_guru === t2_guru && item.hari === d_empty && item.jam_ke === p_empty) {
+                    isT2FreeAtEmpty = false;
+                    break;
+                  }
+                }
+              }
+
+              if (!isTFreeAtSwap || !isT2FreeAtEmpty) continue;
+
+              // Check same-subject same-day limits
+              let isTSubjectAlreadyOnDaySwap = false;
+              for (const item of bestFinalSchedules) {
+                if (item.id_kelas === id_kelas && item.id_mapel === id_mapel && item.hari === d_swap) {
+                  isTSubjectAlreadyOnDaySwap = true;
+                  break;
+                }
+              }
+
+              let isT2SubjectAlreadyOnDayEmpty = false;
+              for (const item of bestFinalSchedules) {
+                if (item !== t2_lesson && item.id_kelas === id_kelas && item.id_mapel === t2_mapel && item.hari === d_empty) {
+                  isT2SubjectAlreadyOnDayEmpty = true;
+                  break;
+                }
+              }
+
+              if (isTSubjectAlreadyOnDaySwap || isT2SubjectAlreadyOnDayEmpty) continue;
+
+              // Check daily teacher load limit per class (max 4 hours)
+              let tLoadOnDaySwap = 0;
+              for (const item of bestFinalSchedules) {
+                if (item.id_guru === id_guru && item.id_kelas === id_kelas && item.hari === d_swap) {
+                  tLoadOnDaySwap++;
+                }
+              }
+
+              let t2LoadOnDayEmpty = 0;
+              for (const item of bestFinalSchedules) {
+                if (item.id_guru === t2_guru && item.id_kelas === id_kelas && item.hari === d_empty) {
+                  t2LoadOnDayEmpty++;
+                }
+              }
+
+              if (tLoadOnDaySwap + 1 > 4 || t2LoadOnDayEmpty + 1 > 4) continue;
+
+              // Perform the swap!
+              t2_lesson.hari = d_empty;
+              t2_lesson.jam_ke = p_empty;
+
+              bestFinalSchedules.push({
+                id_guru: id_guru,
+                id_mapel: id_mapel,
+                id_kelas: id_kelas,
+                hari: d_swap,
+                jam_ke: p_swap
+              });
+
+              swapSuccess = true;
+              resolvedCount++;
+              bestUnassignedTasks.splice(fIdx, 1);
+              break;
+            }
+            if (swapSuccess) break;
+          }
+          if (swapSuccess) break;
+        }
+      }
+      bestUnassignedCount -= resolvedCount;
+    }
+
   if (bestFinalSchedules.length > 0) {
     const { error: insertError } = await supabase.from('jadwal_aktif').insert(bestFinalSchedules);
     if (insertError) throw insertError;
