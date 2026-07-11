@@ -294,15 +294,17 @@ h3 { font-size: 1.25rem; }
 @media print {
   @page {
     size: landscape;
-    margin: 0.4cm !important;
+    margin: 0.3cm !important;
   }
 
   body {
     background: white !important;
     color: #000 !important;
-    font-size: 8pt !important;
+    font-size: 7.5pt !important;
     margin: 0 !important;
     padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   
   .sidebar,
@@ -332,26 +334,29 @@ h3 { font-size: 1.25rem; }
     color: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    padding: 0.3rem !important;
-    margin-bottom: 0.5rem !important;
+    padding: 0.2rem !important;
+    margin-bottom: 0.3rem !important;
+    border-radius: 4px !important;
   }
 
   .print-header-bg h2 {
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
+    margin: 0 !important;
   }
   .print-header-bg h3 {
-    font-size: 0.9rem !important;
+    font-size: 0.8rem !important;
+    margin: 0 !important;
   }
 
   .print-container {
-    width: 139% !important;
-    max-width: 139% !important;
+    width: 100% !important;
+    max-width: 100% !important;
     padding: 0 !important;
     margin: 0 !important;
     background: white !important;
     color: #000 !important;
-    transform: scale(0.72) !important;
-    transform-origin: top left !important;
+    overflow: visible !important;
+    display: block !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
@@ -359,68 +364,75 @@ h3 { font-size: 1.25rem; }
   .print-matrix-wrapper {
     display: flex !important;
     flex-direction: row !important;
-    gap: 0.75rem !important;
+    gap: 0.5rem !important;
     width: 100% !important;
     align-items: flex-start !important;
   }
 
   .print-matrix-wrapper > div:first-child {
     min-width: 0 !important;
-    flex: 1.8 !important;
+    flex: 2.1 !important;
   }
 
   .print-matrix-wrapper > div:last-child {
     width: auto !important;
     flex: 1 !important;
+    max-width: 320px !important;
   }
 
   /* Make matrix table look solid and compact for printing */
   .matrix-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 7pt !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 6pt !important;
+    table-layout: fixed !important;
   }
   
   .matrix-table th, .matrix-table td {
     border: 1px solid #000 !important;
-    padding: 1.5px 2px !important;
-    text-align: center;
+    padding: 0.5px 1px !important;
+    text-align: center !important;
     color: #000 !important;
-    line-height: 1.15 !important;
+    line-height: 1.05 !important;
+    height: 10px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
   }
   
   .matrix-table th {
     background-color: #ddd !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    font-weight: bold;
+    font-weight: bold !important;
   }
   
   .matrix-special-row {
     background-color: #eee !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    font-style: italic;
+    font-style: italic !important;
   }
   
   .day-name-vertical {
     background-color: #ccc !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    padding: 2px !important;
+    padding: 1px !important;
+    font-size: 6pt !important;
   }
 
   /* Right-side legend table */
   .legend-table {
-    font-size: 6.5pt !important;
-    width: 100%;
-    border-collapse: collapse;
+    font-size: 5.5pt !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
   }
   
   .legend-table th, .legend-table td {
     border: 1px solid #000 !important;
-    padding: 1.5px 2px !important;
-    line-height: 1.15 !important;
+    padding: 0.5px 1px !important;
+    line-height: 1.05 !important;
   }
   
   .legend-table th {
@@ -428,5 +440,21 @@ h3 { font-size: 1.25rem; }
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-}
 
+  /* Spacing for signature */
+  .print-matrix-wrapper > div:last-child > div {
+    margin-top: 0.3rem !important;
+    font-size: 6.5pt !important;
+  }
+
+  .print-matrix-wrapper > div:last-child > div img {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .print-matrix-wrapper > div:last-child > div br {
+    display: block !important;
+    content: "" !important;
+    margin-top: 4px !important;
+  }
+}
