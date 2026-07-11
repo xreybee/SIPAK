@@ -62,28 +62,48 @@ export default function Timetabler() {
     const schoolName = identitas?.nama_sekolah || 'SEKOLAH';
     const totalCols = 3 + kelasList.length; // Hari, Jam, Waktu + Classes
 
+    // Calculate dynamic colspans for the legend table to align perfectly on the grid
+    const noSpan = 2;
+    const kodeSpan = 1;
+    const namaGuruSpan = Math.max(1, Math.floor(kelasList.length * 0.4));
+    const mapelSpan = Math.max(1, Math.floor(kelasList.length * 0.3));
+    const kelasSpan = totalCols - (noSpan + kodeSpan + namaGuruSpan + mapelSpan);
+
+    // Build Column Group for precise widths in Excel
+    let colGroupHtml = `
+      <colgroup>
+        <col style="width: 80px;" />  <!-- Hari -->
+        <col style="width: 40px;" />  <!-- Jam -->
+        <col style="width: 100px;" /> <!-- Waktu -->
+    `;
+    kelasList.forEach(() => {
+      colGroupHtml += `  <col style="width: 60px;" />\n`;
+    });
+    colGroupHtml += `</colgroup>`;
+
     // Generate matrix table HTML
     let matrixHtml = `
-      <table border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10pt;">
+      <table>
+        ${colGroupHtml}
         <thead>
           <tr>
-            <th colspan="${totalCols}" style="font-size: 14pt; font-weight: bold; text-align: center; height: 35px; background-color: #6D28D9; color: #FFFFFF; border: 1px solid #000000;">
+            <th colspan="${totalCols}" class="title-cell">
               JADWAL PELAJARAN ${schoolName.toUpperCase()}
             </th>
           </tr>
           <tr>
-            <th colspan="${totalCols}" style="font-size: 11pt; font-weight: bold; text-align: center; height: 25px; background-color: #6D28D9; color: #FFFFFF; border: 1px solid #000000;">
+            <th colspan="${totalCols}" class="subtitle-cell">
               SEMESTER GENAP TAHUN AJARAN 2025-2026
             </th>
           </tr>
-          <tr><td colspan="${totalCols}" style="border: none; height: 15px;"></td></tr>
+          <tr><td colspan="${totalCols}" class="empty-row-cell"></td></tr>
           <tr>
-            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Hari</th>
-            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Jam</th>
-            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Waktu</th>
-            <th colspan="${tingkatMap[7].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 7</th>
-            <th colspan="${tingkatMap[8].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 8</th>
-            <th colspan="${tingkatMap[9].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 9</th>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; text-align: center; vertical-align: middle;">Hari</th>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; text-align: center; vertical-align: middle;">Jam</th>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; text-align: center; vertical-align: middle;">Waktu</th>
+            <th colspan="${tingkatMap[7].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; text-align: center;">Kelas 7</th>
+            <th colspan="${tingkatMap[8].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; text-align: center;">Kelas 8</th>
+            <th colspan="${tingkatMap[9].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; text-align: center;">Kelas 9</th>
           </tr>
           <tr>
     `;
@@ -92,10 +112,10 @@ export default function Timetabler() {
     [7, 8, 9].forEach(tingkat => {
       if (tingkatMap[tingkat].length > 0) {
         tingkatMap[tingkat].forEach(k => {
-          matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">${k.nama_kelompok}</th>`;
+          matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: center;">${k.nama_kelompok}</th>`;
         });
       } else {
-        matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">-</th>`;
+        matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: center;">-</th>`;
       }
     });
 
@@ -112,7 +132,7 @@ export default function Timetabler() {
         matrixHtml += `<tr>`;
         if (idx === 0) {
           matrixHtml += `
-            <td rowspan="${rowDefs.length}" style="background-color: #E2E8F0; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">
+            <td rowspan="${rowDefs.length}" style="background-color: #E2E8F0; font-weight: bold; text-align: center; vertical-align: middle;">
               ${dayNames[hari].toUpperCase()}
             </td>
           `;
@@ -120,23 +140,23 @@ export default function Timetabler() {
 
         if (row.type === 'special') {
           matrixHtml += `
-            <td colspan="2" style="background-color: #F1F5F9; font-style: italic; border: 1px solid #000000; text-align: center;">${row.time}</td>
-            <td colspan="${kelasList.length}" style="background-color: #F1F5F9; font-weight: bold; border: 1px solid #000000; text-align: center;">${row.label}</td>
+            <td colspan="2" style="background-color: #F1F5F9; font-style: italic; text-align: center;">${row.time}</td>
+            <td colspan="${kelasList.length}" style="background-color: #F1F5F9; font-weight: bold; text-align: center;">${row.label}</td>
           `;
         } else {
           matrixHtml += `
-            <td style="border: 1px solid #000000; text-align: center;">${row.num}</td>
-            <td style="border: 1px solid #000000; text-align: center;">${row.time}</td>
+            <td style="text-align: center;">${row.num}</td>
+            <td style="text-align: center;">${row.time}</td>
           `;
 
           [7, 8, 9].forEach(tingkat => {
             if (tingkatMap[tingkat].length > 0) {
               tingkatMap[tingkat].forEach((k: any) => {
                 const cellData = matrix[hari]?.[row.num!]?.[k.id_kelas];
-                matrixHtml += `<td style="border: 1px solid #000000; text-align: center;">${cellData?.kode || '-'}</td>`;
+                matrixHtml += `<td style="text-align: center;">${cellData?.kode || '-'}</td>`;
               });
             } else {
-              matrixHtml += `<td style="border: 1px solid #000000; text-align: center;">-</td>`;
+              matrixHtml += `<td style="text-align: center;">-</td>`;
             }
           });
         }
@@ -149,21 +169,22 @@ export default function Timetabler() {
       </table>
     `;
 
-    // Generate legend table HTML
+    // Generate legend table HTML aligned to the same grid columns
     let legendHtml = `
-      <table border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10pt;">
+      <table>
+        ${colGroupHtml}
         <thead>
           <tr>
-            <th colspan="5" style="font-size: 11pt; font-weight: bold; text-align: left; height: 30px; background-color: #4B5563; color: #FFFFFF; padding-left: 5px; border: 1px solid #000000;">
+            <th colspan="${totalCols}" style="font-size: 11pt; font-weight: bold; text-align: left; height: 30px; background-color: #4B5563; color: #FFFFFF; padding-left: 5px;">
               LEGENDA KODE GURU & MATA PELAJARAN
             </th>
           </tr>
           <tr>
-            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; width: 50px;">No</th>
-            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; width: 60px;">Kode</th>
-            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 250px;">Nama Guru</th>
-            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 200px;">Mata Pelajaran</th>
-            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 150px;">Kelas</th>
+            <th colspan="${noSpan}" style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: center;">No</th>
+            <th colspan="${kodeSpan}" style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: center;">Kode</th>
+            <th colspan="${namaGuruSpan}" style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: left;">Nama Guru</th>
+            <th colspan="${mapelSpan}" style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: left;">Mata Pelajaran</th>
+            <th colspan="${kelasSpan}" style="background-color: #374151; color: #FFFFFF; font-weight: bold; text-align: left;">Kelas</th>
           </tr>
         </thead>
         <tbody>
@@ -172,17 +193,17 @@ export default function Timetabler() {
     legendArray.forEach(leg => {
       legendHtml += `
         <tr>
-          <td style="border: 1px solid #000000; text-align: center;">${leg.no}</td>
-          <td style="border: 1px solid #000000; text-align: center; font-weight: bold;">${leg.kode}</td>
-          <td style="border: 1px solid #000000; text-align: left;">${leg.nama}</td>
-          <td style="border: 1px solid #000000; text-align: left;">${leg.mapelStr}</td>
-          <td style="border: 1px solid #000000; text-align: left;">${leg.kelasStr}</td>
+          <td colspan="${noSpan}" style="text-align: center;">${leg.no}</td>
+          <td colspan="${kodeSpan}" style="text-align: center; font-weight: bold;">${leg.kode}</td>
+          <td colspan="${namaGuruSpan}" style="text-align: left;">${leg.nama}</td>
+          <td colspan="${mapelSpan}" style="text-align: left;">${leg.mapelStr}</td>
+          <td colspan="${kelasSpan}" style="text-align: left;">${leg.kelasStr}</td>
         </tr>
       `;
     });
 
     if (legendArray.length === 0) {
-      legendHtml += `<tr><td colspan="5" style="border: 1px solid #000000; text-align: center;">Tidak ada data</td></tr>`;
+      legendHtml += `<tr><td colspan="${totalCols}" style="text-align: center;">Tidak ada data</td></tr>`;
     }
 
     legendHtml += `
@@ -190,16 +211,20 @@ export default function Timetabler() {
       </table>
     `;
 
-    // Generate signature block HTML
+    // Generate signature block HTML aligned to the same grid columns
     const dateStr = `Kota Pendidikan, 12 Juli 2026`;
     const kepsekName = identitas?.nama_kepsek || 'Dr. Inovator, M.Pd.';
     const kepsekNip = identitas?.nip_kepsek || '19800101 200501 1 001';
 
+    const signLeftSpan = totalCols - 4;
+    const signRightSpan = 4;
+
     let signatureHtml = `
-      <table style="font-family: Arial, sans-serif; font-size: 10pt;">
+      <table>
+        ${colGroupHtml}
         <tr>
-          <td colspan="${totalCols - 4}" style="border: none;"></td>
-          <td colspan="4" style="border: none; text-align: center;">
+          <td colspan="${signLeftSpan}" class="signature-cell"></td>
+          <td colspan="${signRightSpan}" class="signature-cell" style="text-align: center;">
             <p>${dateStr}</p>
             <p>Mengetahui,</p>
             <p>Kepala Sekolah,</p>
@@ -218,7 +243,12 @@ export default function Timetabler() {
       <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Jadwal Pelajaran</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
       <style>
         table { border-collapse: collapse; font-family: Arial, sans-serif; }
-        th, td { font-size: 10pt; }
+        th, td { font-size: 10pt; border: 0.5pt solid #000000; padding: 4px; }
+        .title-cell { font-size: 14pt; font-weight: bold; text-align: center; height: 35px; background-color: #6D28D9; color: #FFFFFF; border: none; }
+        .subtitle-cell { font-size: 11pt; font-weight: bold; text-align: center; height: 25px; background-color: #6D28D9; color: #FFFFFF; border: none; }
+        .empty-row-cell { border: none; height: 15px; }
+        .signature-cell { border: none; text-align: center; font-size: 10pt; }
+        .signature-cell p { margin: 2px 0; }
       </style>
       </head>
       <body>
