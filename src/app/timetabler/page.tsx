@@ -58,6 +58,192 @@ export default function Timetabler() {
     }
   };
 
+  const exportToExcel = () => {
+    const schoolName = identitas?.nama_sekolah || 'SEKOLAH';
+    const totalCols = 3 + kelasList.length; // Hari, Jam, Waktu + Classes
+
+    // Generate matrix table HTML
+    let matrixHtml = `
+      <table border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10pt;">
+        <thead>
+          <tr>
+            <th colspan="${totalCols}" style="font-size: 14pt; font-weight: bold; text-align: center; height: 35px; background-color: #6D28D9; color: #FFFFFF; border: 1px solid #000000;">
+              JADWAL PELAJARAN ${schoolName.toUpperCase()}
+            </th>
+          </tr>
+          <tr>
+            <th colspan="${totalCols}" style="font-size: 11pt; font-weight: bold; text-align: center; height: 25px; background-color: #6D28D9; color: #FFFFFF; border: 1px solid #000000;">
+              SEMESTER GENAP TAHUN AJARAN 2025-2026
+            </th>
+          </tr>
+          <tr><td colspan="${totalCols}" style="border: none; height: 15px;"></td></tr>
+          <tr>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Hari</th>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Jam</th>
+            <th rowspan="2" style="background-color: #4B5563; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">Waktu</th>
+            <th colspan="${tingkatMap[7].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 7</th>
+            <th colspan="${tingkatMap[8].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 8</th>
+            <th colspan="${tingkatMap[9].length || 1}" style="background-color: #1F2937; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">Kelas 9</th>
+          </tr>
+          <tr>
+    `;
+
+    // Render classes row
+    [7, 8, 9].forEach(tingkat => {
+      if (tingkatMap[tingkat].length > 0) {
+        tingkatMap[tingkat].forEach(k => {
+          matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">${k.nama_kelompok}</th>`;
+        });
+      } else {
+        matrixHtml += `<th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center;">-</th>`;
+      }
+    });
+
+    matrixHtml += `
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    // Render rows
+    daysActive.forEach(hari => {
+      const rowDefs = daySchedules[hari] || [];
+      rowDefs.forEach((row, idx) => {
+        matrixHtml += `<tr>`;
+        if (idx === 0) {
+          matrixHtml += `
+            <td rowspan="${rowDefs.length}" style="background-color: #E2E8F0; font-weight: bold; border: 1px solid #000000; text-align: center; vertical-align: middle;">
+              ${dayNames[hari].toUpperCase()}
+            </td>
+          `;
+        }
+
+        if (row.type === 'special') {
+          matrixHtml += `
+            <td colspan="2" style="background-color: #F1F5F9; font-style: italic; border: 1px solid #000000; text-align: center;">${row.time}</td>
+            <td colspan="${kelasList.length}" style="background-color: #F1F5F9; font-weight: bold; border: 1px solid #000000; text-align: center;">${row.label}</td>
+          `;
+        } else {
+          matrixHtml += `
+            <td style="border: 1px solid #000000; text-align: center;">${row.num}</td>
+            <td style="border: 1px solid #000000; text-align: center;">${row.time}</td>
+          `;
+
+          [7, 8, 9].forEach(tingkat => {
+            if (tingkatMap[tingkat].length > 0) {
+              tingkatMap[tingkat].forEach((k: any) => {
+                const cellData = matrix[hari]?.[row.num!]?.[k.id_kelas];
+                matrixHtml += `<td style="border: 1px solid #000000; text-align: center;">${cellData?.kode || '-'}</td>`;
+              });
+            } else {
+              matrixHtml += `<td style="border: 1px solid #000000; text-align: center;">-</td>`;
+            }
+          });
+        }
+        matrixHtml += `</tr>`;
+      });
+    });
+
+    matrixHtml += `
+        </tbody>
+      </table>
+    `;
+
+    // Generate legend table HTML
+    let legendHtml = `
+      <table border="1" style="border-collapse: collapse; font-family: Arial, sans-serif; font-size: 10pt;">
+        <thead>
+          <tr>
+            <th colspan="5" style="font-size: 11pt; font-weight: bold; text-align: left; height: 30px; background-color: #4B5563; color: #FFFFFF; padding-left: 5px; border: 1px solid #000000;">
+              LEGENDA KODE GURU & MATA PELAJARAN
+            </th>
+          </tr>
+          <tr>
+            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; width: 50px;">No</th>
+            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: center; width: 60px;">Kode</th>
+            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 250px;">Nama Guru</th>
+            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 200px;">Mata Pelajaran</th>
+            <th style="background-color: #374151; color: #FFFFFF; font-weight: bold; border: 1px solid #000000; text-align: left; width: 150px;">Kelas</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    legendArray.forEach(leg => {
+      legendHtml += `
+        <tr>
+          <td style="border: 1px solid #000000; text-align: center;">${leg.no}</td>
+          <td style="border: 1px solid #000000; text-align: center; font-weight: bold;">${leg.kode}</td>
+          <td style="border: 1px solid #000000; text-align: left;">${leg.nama}</td>
+          <td style="border: 1px solid #000000; text-align: left;">${leg.mapelStr}</td>
+          <td style="border: 1px solid #000000; text-align: left;">${leg.kelasStr}</td>
+        </tr>
+      `;
+    });
+
+    if (legendArray.length === 0) {
+      legendHtml += `<tr><td colspan="5" style="border: 1px solid #000000; text-align: center;">Tidak ada data</td></tr>`;
+    }
+
+    legendHtml += `
+        </tbody>
+      </table>
+    `;
+
+    // Generate signature block HTML
+    const dateStr = `Kota Pendidikan, 12 Juli 2026`;
+    const kepsekName = identitas?.nama_kepsek || 'Dr. Inovator, M.Pd.';
+    const kepsekNip = identitas?.nip_kepsek || '19800101 200501 1 001';
+
+    let signatureHtml = `
+      <table style="font-family: Arial, sans-serif; font-size: 10pt;">
+        <tr>
+          <td colspan="${totalCols - 4}" style="border: none;"></td>
+          <td colspan="4" style="border: none; text-align: center;">
+            <p>${dateStr}</p>
+            <p>Mengetahui,</p>
+            <p>Kepala Sekolah,</p>
+            <br/><br/><br/>
+            <p style="font-weight: bold; text-decoration: underline;">${kepsekName}</p>
+            <p>NIP. ${kepsekNip}</p>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    // Combine and wrap in Excel HTML Template
+    const excelTemplate = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+      <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Jadwal Pelajaran</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+      <style>
+        table { border-collapse: collapse; font-family: Arial, sans-serif; }
+        th, td { font-size: 10pt; }
+      </style>
+      </head>
+      <body>
+        ${matrixHtml}
+        <br/><br/>
+        ${legendHtml}
+        <br/><br/>
+        ${signatureHtml}
+      </body>
+      </html>
+    `;
+
+    // Download file
+    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Jadwal_Pelajaran_${schoolName.replace(/\s+/g, '_')}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Jadwal berhasil diekspor ke Excel!');
+  };
+
   const dayNames = ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
   const maxPeriods = 8; // We assume 8 periods max for the visual matrix
   const daysActive = [1, 2, 3, 4, 5, 6]; // Include Saturday
@@ -220,6 +406,9 @@ export default function Timetabler() {
         <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem' }}>
           <button onClick={generateSchedule} disabled={isGenerating} className="btn btn-primary">
             {isGenerating ? 'Menyusun...' : '⚡ Generate Jadwal Baru'}
+          </button>
+          <button onClick={exportToExcel} className="btn" style={{ background: '#10b981', color: '#fff', border: '1px solid #10b981' }}>
+            📥 Export ke Excel
           </button>
           <button onClick={() => window.print()} className="btn btn-secondary">
             🖨️ Cetak Jadwal (Landscape)
