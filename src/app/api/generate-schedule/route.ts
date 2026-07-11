@@ -145,14 +145,28 @@ export async function POST() {
     let bestFinalSchedules: any[] = [];
     let bestUnassignedTasks: any[] = [];
 
-    const MAX_RETRIES = 150000;
+    const MAX_RETRIES = 15000;
+    const startTime = Date.now();
+    const MAX_TIME_MS = 4000; // 4-second safety timeout
 
     // Precalculate base slack
     tasks.forEach(t => {
       t.baseSlack = (41 - (guruUnavailableMapCount[t.id_guru] || 0) - teacherLoad[t.id_guru]) + (41 - classLoad[t.id_kelas]);
     });
 
+    // Pre-generate shuffled day arrays to avoid high allocation/GC overhead inside the loop
+    const PRESHUFFLED_DAYS: number[][] = [];
+    for (let i = 0; i < 120; i++) {
+      PRESHUFFLED_DAYS.push(shuffleArray([1, 2, 3, 4, 5, 6]));
+    }
+
     for (let iter = 0; iter < MAX_RETRIES; iter++) {
+      // Check execution time budget every 100 iterations
+      if (iter % 100 === 0 && Date.now() - startTime > MAX_TIME_MS) {
+        console.log(`Broke out of generate loop early at iteration ${iter} due to timeout`);
+        break;
+      }
+
       const teacherSchedule: Record<string, Record<number, Record<number, boolean>>> = {};
       const classSchedule: Record<string, Record<number, Record<number, boolean>>> = {};
       const classMapelHours: Record<string, Record<string, Record<number, number>>> = {};
@@ -162,136 +176,133 @@ export async function POST() {
       const unassignedTasksList: any[] = [];
 
       // Shuffle tasks to create variation
-      let iterationTasks = shuffleArray([...tasks]);
+      const shuffledTasks = shuffleArray([...tasks]);
       
-      // Sort by slack (most constrained first), but with slight random "jitter" 
-      // This ensures we don't get stuck testing the exact same failing sequence
-      iterationTasks.sort((a, b) => {
-        const effectiveSlackA = a.baseSlack + (Math.random() * 4 - 2);
-        const effectiveSlackB = b.baseSlack + (Math.random() * 4 - 2);
+      // Sort tasks using a stable method with precalculated random jitter
+      // This prevents the sorting comparator from violating transitivity/stability constraints
+      const tasksWithJitter = shuffledTasks.map(t => ({
+        task: t,
+        effectiveSlack: t.baseSlack + (Math.random() * 4 - 2),
+        effectiveLen: t.length + (Math.random() * 1.5)
+      }));
 
-        if (Math.abs(effectiveSlackA - effectiveSlackB) > 1.5) {
-          return effectiveSlackA - effectiveSlackB;
+      tasksWithJitter.sort((a, b) => {
+        if (Math.abs(a.effectiveSlack - b.effectiveSlack) > 1.5) {
+          return a.effectiveSlack - b.effectiveSlack;
         }
-        
-        // If slacks are similar, sort by length, also with jitter
-        const lenA = a.length + (Math.random() * 1.5);
-        const lenB = b.length + (Math.random() * 1.5);
-        return lenB - lenA;
+        return b.effectiveLen - a.effectiveLen;
       });
+
+      const iterationTasks = tasksWithJitter.map(x => x.task);
 
       for (let i = 0; i < iterationTasks.length; i++) {
         const task = iterationTasks[i];
         let assigned = false;
         const { id_guru, id_mapel, id_kelas, length: N, isFallback } = task;
       
-      if (!teacherSchedule[id_guru]) teacherSchedule[id_guru] = {};
-      if (!classSchedule[id_kelas]) classSchedule[id_kelas] = {};
-      if (!classMapelHours[id_kelas]) classMapelHours[id_kelas] = {};
-      if (!classMapelHours[id_kelas][id_mapel]) classMapelHours[id_kelas][id_mapel] = {};
-      if (!classTeacherHours[id_kelas]) classTeacherHours[id_kelas] = {};
-      if (!classTeacherHours[id_kelas][id_guru]) classTeacherHours[id_kelas][id_guru] = {};
+        if (!teacherSchedule[id_guru]) teacherSchedule[id_guru] = {};
+        if (!classSchedule[id_kelas]) classSchedule[id_kelas] = {};
+        if (!classMapelHours[id_kelas]) classMapelHours[id_kelas] = {};
+        if (!classMapelHours[id_kelas][id_mapel]) classMapelHours[id_kelas][id_mapel] = {};
+        if (!classTeacherHours[id_kelas]) classTeacherHours[id_kelas] = {};
+        if (!classTeacherHours[id_kelas][id_guru]) classTeacherHours[id_kelas][id_guru] = {};
 
-      // Find valid days and starting periods
-      interface ValidSlot {
-        day: number;
-        startPeriod: number;
-      }
-      let validSlots: ValidSlot[] = [];
+        // Find valid days and starting periods
+        interface ValidSlot {
+          day: number;
+          startPeriod: number;
+        }
+        let validSlots: ValidSlot[] = [];
 
-      // Randomize day traversal to prevent biasing Monday and creating artificial bottlenecks
-      const days = shuffleArray([1, 2, 3, 4, 5, 6]);
+        // Pick a pre-shuffled day order randomly to avoid GC allocation overhead
+        const days = PRESHUFFLED_DAYS[Math.floor(Math.random() * PRESHUFFLED_DAYS.length)];
 
-      for (const d of days) {
-        // PREVENT SAME SUBJECT MULTIPLE TIMES A DAY
-        // Jika mapel sudah ada di hari ini (baik itu 1 jam atau 2 jam), jangan ditaruh lagi di hari yang sama agar tidak terpisah-pisah (split)
-        // KECUALI jika ini adalah task Fallback (darurat) dan tidak ada cara lain.
-        const currentHoursOnDay = classMapelHours[id_kelas][id_mapel][d] || 0;
-        if (!isFallback && currentHoursOnDay > 0) continue;
-        if (currentHoursOnDay + N > (isFallback ? 4 : 3)) continue; // Allow up to 4 hours ONLY in absolute emergency
+        for (const d of days) {
+          // PREVENT SAME SUBJECT MULTIPLE TIMES A DAY
+          const currentHoursOnDay = classMapelHours[id_kelas][id_mapel][d] || 0;
+          if (!isFallback && currentHoursOnDay > 0) continue;
+          if (currentHoursOnDay + N > (isFallback ? 4 : 3)) continue; 
 
-        // PREVENT > 3 hours per teacher per class per day (karena tabel hanya menampilkan kode guru)
-        // KECUALI Fallback, dilonggarkan sampai 5 jam.
-        const currentTeacherHoursOnDay = classTeacherHours[id_kelas][id_guru][d] || 0;
-        if (currentTeacherHoursOnDay + N > (isFallback ? 5 : 4)) continue;
+          // PREVENT > 3 hours per teacher per class per day
+          const currentTeacherHoursOnDay = classTeacherHours[id_kelas][id_guru][d] || 0;
+          if (currentTeacherHoursOnDay + N > (isFallback ? 5 : 4)) continue;
 
+          const available = validPeriodsMap[d];
+          if (available.length < N) continue;
 
-        const available = validPeriodsMap[d];
-        if (available.length < N) continue;
-
-        for (let i = 0; i <= available.length - N; i++) {
-          let isFree = true;
-          for (let j = 0; j < N; j++) {
-            const p = available[i + j];
-            if (
-              teacherSchedule[id_guru][d]?.[p] || 
-              classSchedule[id_kelas][d]?.[p] ||
-              guruUnavailableMap[id_guru]?.[d]?.[p]
-            ) {
-              isFree = false;
-              break;
+          for (let i = 0; i <= available.length - N; i++) {
+            let isFree = true;
+            for (let j = 0; j < N; j++) {
+              const p = available[i + j];
+              if (
+                teacherSchedule[id_guru][d]?.[p] || 
+                classSchedule[id_kelas][d]?.[p] ||
+                guruUnavailableMap[id_guru]?.[d]?.[p]
+              ) {
+                isFree = false;
+                break;
+              }
+            }
+            if (isFree) {
+              validSlots.push({ day: d, startPeriod: available[i] });
             }
           }
-          if (isFree) {
-            validSlots.push({ day: d, startPeriod: available[i] });
+        }
+
+        if (validSlots.length > 0) {
+          // Pick a random valid slot
+          const chosenSlot = validSlots[Math.floor(Math.random() * validSlots.length)];
+          const { day: d, startPeriod: sp } = chosenSlot;
+
+          if (!teacherSchedule[id_guru][d]) teacherSchedule[id_guru][d] = {};
+          if (!classSchedule[id_kelas][d]) classSchedule[id_kelas][d] = {};
+
+          classMapelHours[id_kelas][id_mapel][d] = (classMapelHours[id_kelas][id_mapel][d] || 0) + N;
+          classTeacherHours[id_kelas][id_guru][d] = (classTeacherHours[id_kelas][id_guru][d] || 0) + N;
+
+          for (let j = 0; j < N; j++) {
+            const p = sp + j;
+            teacherSchedule[id_guru][d][p] = true;
+            classSchedule[id_kelas][d][p] = true;
+            finalSchedules.push({
+              id_guru: id_guru,
+              id_mapel: id_mapel,
+              id_kelas: id_kelas,
+              hari: d,
+              jam_ke: p
+            });
+          }
+          assigned = true;
+        }
+
+        if (!assigned) {
+          const mName = mapelDict[id_mapel]?.nama_mapel?.toLowerCase() || '';
+          const isPjok = mName.includes('pjok') || mName.includes('jasmani') || mName.includes('olahraga');
+
+          if (N > 1 && !isPjok) {
+            // Fallback: split into N-1 and 1
+            iterationTasks.splice(i + 1, 0,
+              { id_guru, id_mapel, id_kelas, length: N - 1, isFallback: true, baseSlack: 0 },
+              { id_guru, id_mapel, id_kelas, length: 1, isFallback: true, baseSlack: 0 }
+            );
+          } else if (!isFallback) {
+            // Retry N but with fallback flag to relax constraints
+            iterationTasks.splice(i + 1, 0, { id_guru, id_mapel, id_kelas, length: N, isFallback: true, baseSlack: 0 });
+          } else {
+            unassignedCount += N; // count as N hours failing
+            unassignedTasksList.push(task);
           }
         }
       }
 
-      if (validSlots.length > 0) {
-        // Pick a random valid slot
-        const chosenSlot = validSlots[Math.floor(Math.random() * validSlots.length)];
-        const { day: d, startPeriod: sp } = chosenSlot;
-
-        if (!teacherSchedule[id_guru][d]) teacherSchedule[id_guru][d] = {};
-        if (!classSchedule[id_kelas][d]) classSchedule[id_kelas][d] = {};
-
-        classMapelHours[id_kelas][id_mapel][d] = (classMapelHours[id_kelas][id_mapel][d] || 0) + N;
-        classTeacherHours[id_kelas][id_guru][d] = (classTeacherHours[id_kelas][id_guru][d] || 0) + N;
-
-        for (let j = 0; j < N; j++) {
-          const p = sp + j;
-          teacherSchedule[id_guru][d][p] = true;
-          classSchedule[id_kelas][d][p] = true;
-          finalSchedules.push({
-            id_guru: id_guru,
-            id_mapel: id_mapel,
-            id_kelas: id_kelas,
-            hari: d,
-            jam_ke: p
-          });
-        }
-        assigned = true;
+      if (unassignedCount < bestUnassignedCount) {
+        bestUnassignedCount = unassignedCount;
+        bestFinalSchedules = finalSchedules;
+        bestUnassignedTasks = unassignedTasksList;
       }
 
-      if (!assigned) {
-        const mName = mapelDict[id_mapel]?.nama_mapel?.toLowerCase() || '';
-        const isPjok = mName.includes('pjok') || mName.includes('jasmani') || mName.includes('olahraga');
-
-        if (N > 1 && !isPjok) {
-          // Fallback: pecah menjadi N-1 dan 1
-          iterationTasks.splice(i + 1, 0,
-            { id_guru, id_mapel, id_kelas, length: N - 1, isFallback: true, baseSlack: 0 }, // Tambahkan baseSlack
-            { id_guru, id_mapel, id_kelas, length: 1, isFallback: true, baseSlack: 0 }    // Tambahkan baseSlack
-          );
-        } else if (!isFallback) {
-          // Retry N but with fallback flag to relax constraints
-          iterationTasks.splice(i + 1, 0, { id_guru, id_mapel, id_kelas, length: N, isFallback: true, baseSlack: 0 }); // Tambahkan baseSlack
-        } else {
-          unassignedCount += N; // count as N hours failing
-          unassignedTasksList.push(task);
-        }
-      }
+      if (bestUnassignedCount === 0) break; // Perfect schedule found
     }
-
-    if (unassignedCount < bestUnassignedCount) {
-      bestUnassignedCount = unassignedCount;
-      bestFinalSchedules = finalSchedules;
-      bestUnassignedTasks = unassignedTasksList;
-    }
-
-    if (bestUnassignedCount === 0) break; // Perfect schedule found
-  }
 
   if (bestFinalSchedules.length > 0) {
     const { error: insertError } = await supabase.from('jadwal_aktif').insert(bestFinalSchedules);

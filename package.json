@@ -11,6 +11,8 @@
   "dependencies": {
     "@serwist/next": "^9.5.11",
     "@supabase/supabase-js": "^2.108.2",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
     "jose": "^6.2.3",
     "jspdf": "^4.2.1",
     "next": "16.2.9",

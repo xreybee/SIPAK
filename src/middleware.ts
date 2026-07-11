@@ -23,12 +23,20 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, JWT_SECRET);
     if (isLoginPage) {
       // Already logged in, redirect to dashboard
       return NextResponse.redirect(new URL('/', request.url));
     }
-    return NextResponse.next();
+    const headers = new Headers(request.headers);
+    headers.set('x-user-id', payload.sub as string);
+    headers.set('x-user-name', payload.nama as string);
+
+    return NextResponse.next({
+      request: {
+        headers,
+      },
+    });
   } catch (err) {
     // Token invalid or expired
     const response = NextResponse.redirect(new URL('/login', request.url));

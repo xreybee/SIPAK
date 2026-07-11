@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { supabase } from '@/lib/supabase';
+import { comparePasswords } from '@/lib/auth';
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'super_secret_key_for_sipak_demo_only');
 
@@ -23,8 +24,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Identitas pegawai tidak ditemukan.' }, { status: 401 });
     }
 
-    // In a real app, use bcrypt.compare. Here we use plain string comparison for demo.
-    if (user.password_hash !== password) {
+    const isValid = await comparePasswords(password, user.password_hash);
+    if (!isValid) {
       return NextResponse.json({ error: 'Kata sandi salah.' }, { status: 401 });
     }
 
