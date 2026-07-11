@@ -145,9 +145,9 @@ export async function POST() {
     let bestFinalSchedules: any[] = [];
     let bestUnassignedTasks: any[] = [];
 
-    const MAX_RETRIES = 15000;
+    const MAX_RETRIES = 40000;
     const startTime = Date.now();
-    const MAX_TIME_MS = 4000; // 4-second safety timeout
+    const MAX_TIME_MS = 8000; // 8-second safety timeout
 
     // Precalculate base slack
     tasks.forEach(t => {
@@ -207,13 +207,6 @@ export async function POST() {
         if (!classTeacherHours[id_kelas]) classTeacherHours[id_kelas] = {};
         if (!classTeacherHours[id_kelas][id_guru]) classTeacherHours[id_kelas][id_guru] = {};
 
-        // Find valid days and starting periods
-        interface ValidSlot {
-          day: number;
-          startPeriod: number;
-        }
-        let validSlots: ValidSlot[] = [];
-
         // Pick a pre-shuffled day order randomly to avoid GC allocation overhead
         const days = PRESHUFFLED_DAYS[Math.floor(Math.random() * PRESHUFFLED_DAYS.length)];
 
@@ -230,10 +223,15 @@ export async function POST() {
           const available = validPeriodsMap[d];
           if (available.length < N) continue;
 
-          for (let i = 0; i <= available.length - N; i++) {
+          // Try starting periods in a randomized wrap-around order
+          const startLimit = available.length - N + 1;
+          const startOffset = Math.floor(Math.random() * startLimit);
+
+          for (let offset = 0; offset < startLimit; offset++) {
+            const idx = (startOffset + offset) % startLimit;
             let isFree = true;
             for (let j = 0; j < N; j++) {
-              const p = available[i + j];
+              const p = available[idx + j];
               if (
                 teacherSchedule[id_guru][d]?.[p] || 
                 classSchedule[id_kelas][d]?.[p] ||
@@ -243,36 +241,32 @@ export async function POST() {
                 break;
               }
             }
+
             if (isFree) {
-              validSlots.push({ day: d, startPeriod: available[i] });
+              const sp = available[idx];
+              if (!teacherSchedule[id_guru][d]) teacherSchedule[id_guru][d] = {};
+              if (!classSchedule[id_kelas][d]) classSchedule[id_kelas][d] = {};
+
+              classMapelHours[id_kelas][id_mapel][d] = (classMapelHours[id_kelas][id_mapel][d] || 0) + N;
+              classTeacherHours[id_kelas][id_guru][d] = (classTeacherHours[id_kelas][id_guru][d] || 0) + N;
+
+              for (let j = 0; j < N; j++) {
+                const p = sp + j;
+                teacherSchedule[id_guru][d][p] = true;
+                classSchedule[id_kelas][d][p] = true;
+                finalSchedules.push({
+                  id_guru: id_guru,
+                  id_mapel: id_mapel,
+                  id_kelas: id_kelas,
+                  hari: d,
+                  jam_ke: p
+                });
+              }
+              assigned = true;
+              break;
             }
           }
-        }
-
-        if (validSlots.length > 0) {
-          // Pick a random valid slot
-          const chosenSlot = validSlots[Math.floor(Math.random() * validSlots.length)];
-          const { day: d, startPeriod: sp } = chosenSlot;
-
-          if (!teacherSchedule[id_guru][d]) teacherSchedule[id_guru][d] = {};
-          if (!classSchedule[id_kelas][d]) classSchedule[id_kelas][d] = {};
-
-          classMapelHours[id_kelas][id_mapel][d] = (classMapelHours[id_kelas][id_mapel][d] || 0) + N;
-          classTeacherHours[id_kelas][id_guru][d] = (classTeacherHours[id_kelas][id_guru][d] || 0) + N;
-
-          for (let j = 0; j < N; j++) {
-            const p = sp + j;
-            teacherSchedule[id_guru][d][p] = true;
-            classSchedule[id_kelas][d][p] = true;
-            finalSchedules.push({
-              id_guru: id_guru,
-              id_mapel: id_mapel,
-              id_kelas: id_kelas,
-              hari: d,
-              jam_ke: p
-            });
-          }
-          assigned = true;
+          if (assigned) break;
         }
 
         if (!assigned) {
