@@ -294,12 +294,15 @@ h3 { font-size: 1.25rem; }
 @media print {
   @page {
     size: landscape;
-    margin: 1cm;
+    margin: 0.4cm !important;
   }
 
   body {
     background: white !important;
-    font-size: 9pt;
+    color: #000 !important;
+    font-size: 8pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   
   .sidebar,
@@ -314,6 +317,7 @@ h3 { font-size: 1.25rem; }
     margin: 0 !important;
     padding: 0 !important;
     max-width: 100% !important;
+    width: 100% !important;
   }
 
   .glass-panel {
@@ -328,20 +332,63 @@ h3 { font-size: 1.25rem; }
     color: white !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    padding: 0.3rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .print-header-bg h2 {
+    font-size: 1.1rem !important;
+  }
+  .print-header-bg h3 {
+    font-size: 0.9rem !important;
+  }
+
+  .print-container {
+    width: 139% !important;
+    max-width: 139% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    color: #000 !important;
+    transform: scale(0.72) !important;
+    transform-origin: top left !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-matrix-wrapper {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
+    align-items: flex-start !important;
+  }
+
+  .print-matrix-wrapper > div:first-child {
+    min-width: 0 !important;
+    flex: 1.8 !important;
+  }
+
+  .print-matrix-wrapper > div:last-child {
+    width: auto !important;
+    flex: 1 !important;
   }
 
   /* Make matrix table look solid and compact for printing */
   .matrix-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 8pt;
+    font-size: 7pt !important;
   }
+  
   .matrix-table th, .matrix-table td {
     border: 1px solid #000 !important;
-    padding: 3px 4px !important;
+    padding: 1.5px 2px !important;
     text-align: center;
     color: #000 !important;
+    line-height: 1.15 !important;
   }
+  
   .matrix-table th {
     background-color: #ddd !important;
     -webkit-print-color-adjust: exact;
@@ -360,27 +407,26 @@ h3 { font-size: 1.25rem; }
     background-color: #ccc !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+    padding: 2px !important;
   }
 
   /* Right-side legend table */
   .legend-table {
-    font-size: 8pt;
+    font-size: 6.5pt !important;
     width: 100%;
     border-collapse: collapse;
   }
+  
   .legend-table th, .legend-table td {
     border: 1px solid #000 !important;
-    padding: 2px 4px !important;
+    padding: 1.5px 2px !important;
+    line-height: 1.15 !important;
   }
+  
   .legend-table th {
     background-color: #ddd !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-  }
-
-  @page {
-    size: landscape;
-    margin: 1cm;
   }
 }
 
