@@ -24,7 +24,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Identitas pegawai tidak ditemukan.' }, { status: 401 });
     }
 
-    const isValid = await comparePasswords(password, user.password_hash);
+    let isValid = false;
+    const isBcrypt = user.password_hash.startsWith('$2a$') || user.password_hash.startsWith('$2b$');
+    if (isBcrypt) {
+      isValid = await comparePasswords(password, user.password_hash);
+    } else {
+      isValid = (password === user.password_hash);
+      if (isValid) {
+        // Auto-migrate the plaintext password to bcrypt hash in the background
+        try {
+          const { hashPassword } = await import('@/lib/auth');
+          const newHash = await hashPassword(password);
+          await supabase
+            .from('admin_users')
+            .update({ password_hash: newHash })
+            .eq('id', user.id);
+        } catch (migrationError) {
+          console.error('Failed to migrate password hash:', migrationError);
+        }
+      }
+    }
+
     if (!isValid) {
       return NextResponse.json({ error: 'Kata sandi salah.' }, { status: 401 });
     }
